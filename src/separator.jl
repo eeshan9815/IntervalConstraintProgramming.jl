@@ -29,6 +29,10 @@ end
 
     inner = C(IntervalBox(Interval(a, b)), X)
 
+    if isempty(inner)
+        return inner, X
+    end
+
     local outer
 
     if a == -∞
