@@ -36,8 +36,8 @@ function pave{N,T}(S::Separator, working::Vector{IntervalBox{N,T}}, ϵ)
 
         old_diam = 2*diam(X)
 
-        # contract the *same* box several times:
-        while diam(X) < 0.7*old_diam
+        # contract the *same* (reduced) box several times:
+        while diam(X) < 0.9*old_diam
             # @show X, diam(X), old_diam
 
             old_diam = diam(X)
@@ -53,7 +53,7 @@ function pave{N,T}(S::Separator, working::Vector{IntervalBox{N,T}}, ϵ)
 
             X = inner ∩ outer  # boundary;  discard outer
 
-            if isempty(X)
+            if isempty(X) || diam(X) < ϵ
                 break
             end
 
