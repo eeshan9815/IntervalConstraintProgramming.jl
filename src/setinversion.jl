@@ -34,28 +34,40 @@ function pave{N,T}(S::Separator, working::Vector{IntervalBox{N,T}}, ϵ)
 
         X = pop!(working)
 
-        inner, outer = S(X)   # here inner and outer are reversed compared to Jaulin
-        # S(X) returns the pair (contractor with respect to the inside of the constraing, contractor with respect to outside)
+        old_diam = 2*diam(X)
 
-        #@show X, outer
-        inside_list = setdiff(X, outer)
+        # contract the *same* box several times:
+        while diam(X) < 0.9*old_diam
+            # @show X, diam(X), old_diam
 
-        if length(inside_list) > 0
-            append!(inner_list, inside_list)
+            old_diam = diam(X)
+
+            # apply the separator:
+            inner, outer = S(X)   # inner and outer are reversed compared to Jaulin
+
+            inside_list = setdiff(X, outer)  # list of boxes that are proved inside
+
+            if length(inside_list) > 0
+                append!(inner_list, inside_list)
+            end
+
+            X = inner ∩ outer  # boundary;  discard outer
+
+            if isempty(X) || diam(X) < ϵ
+                break
+            end
+
         end
 
-
-        boundary = inner ∩ outer
-
-        if isempty(boundary)
+        if isempty(X)
             continue
         end
 
-        if diam(boundary) < ϵ
-            push!(boundary_list, boundary)
+        if diam(X) < ϵ  # excludes empty
+            push!(boundary_list, X)
 
         else
-            push!(working, bisect(boundary)...)
+            push!(working, bisect(X)...)
         end
 
     end
