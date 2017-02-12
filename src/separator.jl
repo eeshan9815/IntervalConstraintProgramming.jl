@@ -30,7 +30,7 @@ end
     inner = C(IntervalBox(Interval(a, b)), X)
 
     if isempty(inner)
-        return inner, X
+        return (inner, X)
     end
 
     local outer

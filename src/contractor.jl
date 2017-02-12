@@ -34,7 +34,15 @@ end
     # @show intermediate
 
     output_box = IntervalBox(output)
+
+    # eliminate call to backward propagation if know that inside:
+    if output_box ⊆ A
+        return X
+    end
+
     constrained = output_box ∩ A
+
+
 
     # if constrained is already empty, eliminate call to backward propagation:
 
