@@ -44,28 +44,37 @@ end
 
 # Types for representing a flattened AST:
 
-# Combine Assignment and FunctionAssignment ?
-
+doc"""
+Represents `lhs = op(args)`
+"""
 immutable Assignment
     lhs
     op
     args
 end
 
+doc"""
+Represents `return_arguments = f(args)`.
+`intermediate` is a tuple of intermediate variables returned by
+the forward pass.
+"""
 immutable FunctionAssignment
-    f  # function name
-    args  # input arguments
+    f
+    args
     return_arguments
-    intermediate  # tuple of intermediate variables
+    intermediate
 end
 
-# Close to single assignment form
+doc"""
+Representation of an AST in close to static single assignment (SSA) form
+"""
 type FlatAST
     top  # topmost variable(s)
     input_variables::Set{Symbol}
     intermediate::Vector{Symbol}  # generated vars
-    code # ::Vector{Assignment}
+    code   # Vector of Assigment or FunctionAssignment objects
     variables::Vector{Symbol}  # cleaned version of input_variables
+    local_variables::Set{Symbol}
 end
 
 
@@ -76,7 +85,7 @@ function Base.show(io::IO, flatAST::FlatAST)
     println(io, "code: ", flatAST.code)
 end
 
-FlatAST() = FlatAST([], Set{Symbol}(), [], [], [])
+FlatAST() = FlatAST( [], Set{Symbol}(), [], [], [], Set{Symbol}() )
 
 export FlatAST
 
@@ -91,10 +100,17 @@ add_intermediate!(flatAST::FlatAST, vars::Vector{Symbol}) = append!(flatAST.inte
 
 add_code!(flatAST::FlatAST, code) = push!(flatAST.code, code)
 
+add_local_variable!(flatAST::FlatAST, var::Symbol) = push!(flatAST.local_variables, var)
+
+add_local_variable!(flatAST::FlatAST, var::Expr) = push!(flatAST.local_variables, var.args)  # tuple
+
 export flatten
 
 
 function flatten(ex)
+
+    ex = MacroTools.striplines(ex)
+
     flatAST = FlatAST()
     top = flatten!(flatAST, ex)
 
@@ -120,8 +136,17 @@ end
 
 # symbols:
 function flatten!(flatAST::FlatAST, ex::Symbol)  # symbols are leaves
-    add_variable!(flatAST, ex)  # add the discovered symbol as an input variable
-    return ex
+    if ex ∉ flatAST.local_variables
+        add_variable!(flatAST, ex)  # add the discovered symbol as an input variable
+        return ex
+
+    else
+        ex = make_symbol(Symbol("local_", ex))
+        add_intermediate!(flatAST, ex)
+
+        return ex
+    end
+
 end
 
 
@@ -145,6 +170,9 @@ function flatten!(flatAST::FlatAST, ex::Expr)
 
     elseif ex.head == :return
         top = process_return!(flatAST, ex)
+
+    else
+        error("Cannot process Expr with ex.head = $(ex.head)")
     end
 
     set_top!(flatAST, top)
@@ -201,8 +229,10 @@ function process_assignment!(flatAST::FlatAST, ex)
     top = flatten!(flatAST, ex.args[2])
     # @show top
 
-    var = ex.args[1]
+    var = ex.args[1]  # the variable(s) on the LHS
     # @show var
+
+    add_local_variable!(flatAST, var)
 
     # TODO: Replace the following by multiple dispatch
     if isa(var, Expr) && var.head == :tuple
